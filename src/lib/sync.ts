@@ -16,6 +16,20 @@ const TABLES = {
   userPreferences: 'user_preferences',
 } as const
 
+/**
+ * Primary key column for each remote table.
+ * Most tables use 'id' (UUID), but daily_summaries uses 'date' as its PK.
+ */
+const TABLE_PK: Record<string, string> = {
+  preset_assets: 'id',
+  ledger_entries: 'id',
+  daily_summaries: 'date',
+  biometrics: 'id',
+  ai_sessions: 'id',
+  user_profile: 'id',
+  user_preferences: 'id',
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
@@ -157,7 +171,7 @@ function toLocalRecord(table: string, row: any): any {
       }
     case 'daily_summaries':
       return {
-        remoteId: row.id,
+        // daily_summaries uses 'date' as PK, not 'id' — no remoteId
         date: row.date,
         totalCal: row.total_cal,
         totalBurnedCal: row.total_burned_cal,
@@ -247,13 +261,15 @@ async function pushTable<T extends { id?: number; remoteId?: string; synced?: bo
     const row = toRemoteRow(remoteTable, record, userId)
     console.log(`[Sync] pushTable ${remoteTable}: pushing record id=${record.id}, remoteId=${record.remoteId}`, JSON.stringify(row))
 
+    const pk = TABLE_PK[remoteTable] ?? 'id'
+
     if (record.remoteId) {
       const { error } = await supabase
         .from(remoteTable)
         .update(row)
-        .eq('id', record.remoteId)
+        .eq(pk, record.remoteId)
         .eq('user_id', userId)
-        .select('id')
+        .select(pk)
 
       if (error) {
         console.error(`[Sync] Failed to update ${remoteTable} ${record.remoteId}:`, error)
@@ -265,15 +281,16 @@ async function pushTable<T extends { id?: number; remoteId?: string; synced?: bo
       const { data, error } = await supabase
         .from(remoteTable)
         .insert(row)
-        .select('id')
+        .select(pk)
         .single()
 
       if (error) {
         console.error(`[Sync] Failed to insert ${remoteTable}:`, error)
       } else if (data) {
-        console.log(`[Sync] Successfully inserted ${remoteTable}, got remoteId=${data.id}`)
+        const newRemoteId = (data as any)[pk]
+        console.log(`[Sync] Successfully inserted ${remoteTable}, got ${pk}=${newRemoteId}`)
         await (localTable as any).update(record.id!, {
-          remoteId: data.id,
+          remoteId: newRemoteId,
           synced: true,
         })
       } else {
@@ -311,11 +328,22 @@ async function pullTable<T extends { id?: number; remoteId?: string; createdAt?:
 
   if (!data || data.length === 0) return
 
+  const pk = TABLE_PK[remoteTable] ?? 'id'
+
   for (const row of data) {
-    const existing = await (localTable as any)
-      .where('remoteId')
-      .equals(row.id)
-      .first()
+    // For tables with 'id' PK, match by remoteId; for 'date' PK, match by date
+    let existing: any
+    if (pk === 'id') {
+      existing = await (localTable as any)
+        .where('remoteId')
+        .equals(row.id)
+        .first()
+    } else {
+      existing = await (localTable as any)
+        .where(pk)
+        .equals(row[pk])
+        .first()
+    }
 
     const localRecord = toLocalRecord(remoteTable, row)
 
@@ -336,10 +364,11 @@ async function pullTable<T extends { id?: number; remoteId?: string; createdAt?:
 // ═══════════════════════════════════════════════════════════════════
 
 export async function deleteRemoteRecord(remoteTable: string, remoteId: string) {
+  const pk = TABLE_PK[remoteTable] ?? 'id'
   const { error } = await supabase
     .from(remoteTable)
     .delete()
-    .eq('id', remoteId)
+    .eq(pk, remoteId)
 
   if (error) {
     console.error(`[Sync] Failed to delete ${remoteTable} ${remoteId}:`, error)
