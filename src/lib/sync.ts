@@ -261,11 +261,21 @@ async function pushTable<T extends { id?: number; remoteId?: string; synced?: bo
   for (const record of unsynced) {
     // For ledger_entries, resolve presetId from local number to UUID (remoteId)
     const r = record as any
-    if (remoteTable === 'ledger_entries' && r.presetId != null && typeof r.presetId === 'number') {
-      const preset = await db.presetAssets.get(r.presetId)
-      if (preset?.remoteId) {
-        r.presetId = preset.remoteId
-        console.log(`[Sync] pushTable ledger_entries: resolved presetId from ${r.presetId} to remoteId ${preset.remoteId}`)
+    if (remoteTable === 'ledger_entries' && r.presetId != null) {
+      const originalPresetId = r.presetId
+      if (typeof originalPresetId === 'number') {
+        const preset = await db.presetAssets.get(originalPresetId)
+        if (preset?.remoteId) {
+          r.presetId = preset.remoteId
+          console.log(`[Sync] pushTable ledger_entries: resolved presetId ${originalPresetId} → remoteId ${preset.remoteId}`)
+        } else if (preset) {
+          // Preset exists but hasn't been synced yet — keep the number, will resolve on next sync
+          console.log(`[Sync] pushTable ledger_entries: preset ${originalPresetId} found but no remoteId yet, keeping number`)
+        } else {
+          console.warn(`[Sync] pushTable ledger_entries: preset ${originalPresetId} not found locally, keeping number`)
+        }
+      } else {
+        console.log(`[Sync] pushTable ledger_entries: presetId is already a string (${originalPresetId}), keeping as-is`)
       }
     }
 
