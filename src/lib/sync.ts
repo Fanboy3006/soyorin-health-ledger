@@ -275,7 +275,11 @@ async function pushTable<T extends { id?: number; remoteId?: string; synced?: bo
         console.error(`[Sync] Failed to update ${remoteTable} ${record.remoteId}:`, error)
       } else {
         console.log(`[Sync] Successfully updated ${remoteTable} ${record.remoteId}`)
-        await (localTable as any).update(record.id!, { synced: true })
+        const updated = await (localTable as any).update(record.id!, { synced: true })
+        if (updated === 0) {
+          console.warn(`[Sync] Update returned 0 affected rows for ${remoteTable} id=${record.id} — trying put()`)
+          await (localTable as any).put({ ...record, synced: true })
+        }
       }
     } else {
       const { data, error } = await supabase
@@ -289,10 +293,16 @@ async function pushTable<T extends { id?: number; remoteId?: string; synced?: bo
       } else if (data) {
         const newRemoteId = (data as any)[pk]
         console.log(`[Sync] Successfully inserted ${remoteTable}, got ${pk}=${newRemoteId}`)
-        await (localTable as any).update(record.id!, {
-          remoteId: newRemoteId,
-          synced: true,
-        })
+        const updateFields: Record<string, any> = { synced: true }
+        // Only set remoteId if the PK is 'id' (not for tables like daily_summaries where PK is 'date')
+        if (pk === 'id') {
+          updateFields.remoteId = newRemoteId
+        }
+        const updated = await (localTable as any).update(record.id!, updateFields)
+        if (updated === 0) {
+          console.warn(`[Sync] Update returned 0 affected rows for ${remoteTable} id=${record.id} — trying put()`)
+          await (localTable as any).put({ ...record, ...updateFields })
+        }
       } else {
         console.warn(`[Sync] Insert ${remoteTable} returned no data and no error`)
       }
