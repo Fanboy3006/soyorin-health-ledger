@@ -320,6 +320,8 @@ async function pullTable<T extends { id?: number; remoteId?: string; createdAt?:
   userId: string,
   options?: { dateField?: string; dateValue?: string },
 ) {
+  console.log(`[Sync] pullTable ${remoteTable}: starting...`)
+
   let query = supabase
     .from(remoteTable)
     .select('*')
@@ -329,14 +331,50 @@ async function pullTable<T extends { id?: number; remoteId?: string; createdAt?:
     query = query.eq(options.dateField, options.dateValue)
   }
 
+  // Try ordering by created_at; fall back to no ordering if column doesn't exist
   const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
-    console.error(`[Sync] Failed to pull ${remoteTable}:`, error)
+    // If the error is about created_at column not existing, retry without ordering
+    if (error.message?.includes('created_at')) {
+      console.log(`[Sync] pullTable ${remoteTable}: created_at column not found, retrying without order`)
+      const retryQuery = supabase
+        .from(remoteTable)
+        .select('*')
+        .eq('user_id', userId)
+      if (options?.dateField && options?.dateValue) {
+        retryQuery.eq(options.dateField, options.dateValue)
+      }
+      const retryResult = await retryQuery
+      if (retryResult.error) {
+        console.error(`[Sync] Failed to pull ${remoteTable} (retry):`, retryResult.error)
+        return
+      }
+      if (!retryResult.data || retryResult.data.length === 0) {
+        console.log(`[Sync] pullTable ${remoteTable}: no data found`)
+        return
+      }
+      await processPullData(localTable, remoteTable, retryResult.data)
+    } else {
+      console.error(`[Sync] Failed to pull ${remoteTable}:`, error)
+    }
     return
   }
 
-  if (!data || data.length === 0) return
+  if (!data || data.length === 0) {
+    console.log(`[Sync] pullTable ${remoteTable}: no data found`)
+    return
+  }
+
+  await processPullData(localTable, remoteTable, data)
+}
+
+async function processPullData(
+  localTable: Dexie.Table<any, number>,
+  remoteTable: string,
+  data: any[],
+) {
+  console.log(`[Sync] pullTable ${remoteTable}: ${data.length} records received`)
 
   const pk = TABLE_PK[remoteTable] ?? 'id'
 
@@ -359,12 +397,14 @@ async function pullTable<T extends { id?: number; remoteId?: string; createdAt?:
 
     if (!existing) {
       await (localTable as any).add(localRecord)
+      console.log(`[Sync] pullTable ${remoteTable}: added new record ${pk}=${row[pk]}`)
     } else if (
       localRecord.createdAt &&
       existing.createdAt &&
       new Date(localRecord.createdAt) > new Date(existing.createdAt)
     ) {
       await (localTable as any).update(existing.id!, localRecord)
+      console.log(`[Sync] pullTable ${remoteTable}: updated existing record ${pk}=${row[pk]}`)
     }
   }
 }
