@@ -62,6 +62,7 @@ function toRemoteRow(table: string, record: any, userId: string): Record<string,
       return {
         ...base,
         date: record.date,
+        // preset_id is resolved in pushTable before calling toRemoteRow
         preset_id: record.presetId,
         type: record.type,
         quantity: record.quantity,
@@ -258,6 +259,16 @@ async function pushTable<T extends { id?: number; remoteId?: string; synced?: bo
   console.log(`[Sync] pushTable ${remoteTable}: ${unsynced.length} unsynced records, userId=${userId}`)
 
   for (const record of unsynced) {
+    // For ledger_entries, resolve presetId from local number to UUID (remoteId)
+    const r = record as any
+    if (remoteTable === 'ledger_entries' && r.presetId != null && typeof r.presetId === 'number') {
+      const preset = await db.presetAssets.get(r.presetId)
+      if (preset?.remoteId) {
+        r.presetId = preset.remoteId
+        console.log(`[Sync] pushTable ledger_entries: resolved presetId from ${r.presetId} to remoteId ${preset.remoteId}`)
+      }
+    }
+
     const row = toRemoteRow(remoteTable, record, userId)
     console.log(`[Sync] pushTable ${remoteTable}: pushing record id=${record.id}, remoteId=${record.remoteId}`, JSON.stringify(row))
 
@@ -394,6 +405,23 @@ async function processPullData(
     }
 
     const localRecord = toLocalRecord(remoteTable, row)
+
+    // For ledger_entries, resolve presetId from UUID to local preset ID
+    if (remoteTable === 'ledger_entries' && localRecord.presetId != null && typeof localRecord.presetId === 'string') {
+      // Look up the preset by remoteId (UUID) to find the local ID
+      const preset = await db.presetAssets
+        .where('remoteId')
+        .equals(localRecord.presetId)
+        .first()
+      if (preset?.id) {
+        localRecord.presetId = preset.id
+        console.log(`[Sync] pullTable ledger_entries: resolved presetId from UUID ${row.preset_id} to local ID ${preset.id}`)
+      } else {
+        // Preset not found locally — set to null to avoid broken reference
+        console.warn(`[Sync] pullTable ledger_entries: preset with remoteId ${localRecord.presetId} not found locally, setting presetId=null`)
+        localRecord.presetId = null
+      }
+    }
 
     if (!existing) {
       await (localTable as any).add(localRecord)
