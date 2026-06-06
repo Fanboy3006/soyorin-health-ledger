@@ -407,6 +407,17 @@ async function processPullData(
         .where('remoteId')
         .equals(row.id)
         .first()
+
+      // Fallback: if remoteId didn't match, try matching by name (for preset_assets)
+      if (!existing && remoteTable === 'preset_assets' && row.name) {
+        existing = await (localTable as any)
+          .where('name')
+          .equals(row.name)
+          .first()
+        if (existing) {
+          console.log(`[Sync] pullTable ${remoteTable}: matched by name "${row.name}" (id=${existing.id}), updating remoteId`)
+        }
+      }
     } else {
       existing = await (localTable as any)
         .where(pk)
