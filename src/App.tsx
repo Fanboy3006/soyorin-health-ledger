@@ -64,7 +64,7 @@ export default function App() {
     handleVisionSavePreset,
     handleVisionSaveEntry,
     handleSettle,
-  } = useLedgerData(selectedDate, isOnline, navigate, user?.id)
+  } = useLedgerData(selectedDate, isOnline, navigate)
 
   const { bmr, baseBurn, handleBmrSave } = useBMR(profile, setProfile)
 

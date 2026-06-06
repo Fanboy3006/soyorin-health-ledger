@@ -2,13 +2,15 @@
 // AuthPage — 登录/注册页面
 // ═══════════════════════════════════════════════════════════════════
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { createSamplePresets } from '../lib/samplePresets'
 
 export default function AuthPage() {
   const navigate = useNavigate()
   const { user, signIn, signUp } = useAuth()
+  const createdRef = useRef(false)
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
@@ -23,6 +25,14 @@ export default function AuthPage() {
       navigate('/', { replace: true })
     }
   }, [user, navigate])
+
+  // ── Create sample presets on first login ───────────────────────
+  useEffect(() => {
+    if (user && !createdRef.current) {
+      createdRef.current = true
+      createSamplePresets()
+    }
+  }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
