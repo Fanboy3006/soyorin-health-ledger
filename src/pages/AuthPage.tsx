@@ -50,6 +50,8 @@ export default function AuthPage() {
         setError(errMsg)
       } else if (mode === 'register') {
         setSuccessMsg('注册成功！请查看邮箱确认链接，然后登录。')
+        // Mark as new user so sample presets are created on first login
+        sessionStorage.setItem('soyorin_new_user', 'true')
       }
       // login success → user state changes → useEffect navigates to /
     } finally {

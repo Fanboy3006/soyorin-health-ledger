@@ -88,6 +88,14 @@ export const SAMPLE_PRESETS: Array<Omit<PresetAsset, 'id'>> = [
  * @param userId - 当前登录用户的 Supabase user ID，用于检查云端数据
  */
 export async function createSamplePresets(userId: string): Promise<void> {
+  // 0. 只在新注册用户首次登录时创建，老用户登录直接跳过
+  const isNewUser = sessionStorage.getItem('soyorin_new_user') === 'true'
+  if (!isNewUser) {
+    console.log('[SamplePresets] Not a new user, skipping')
+    return
+  }
+  sessionStorage.removeItem('soyorin_new_user')
+
   // 1. 检查本地是否已有预设
   const localCount = await db.presetAssets.count()
   if (localCount > 0) {
@@ -95,7 +103,7 @@ export async function createSamplePresets(userId: string): Promise<void> {
     return
   }
 
-  // 2. 检查云端是否已有预设（老用户清空本地数据后登录，不应创建）
+  // 2. 检查云端是否已有预设（双重保险：老用户清空本地数据后登录，不应创建）
   const { count: remoteCount, error } = await supabase
     .from('preset_assets')
     .select('*', { count: 'exact', head: true })
