@@ -35,6 +35,7 @@ export function useLedgerData(
   selectedDate: string,
   isOnline: boolean,
   navigate: (path: string) => void,
+  userId?: string,
 ) {
   // ── State ──────────────────────────────────────────────────────
   const [presets, setPresets] = useState<PresetAsset[]>([])
@@ -53,7 +54,7 @@ export function useLedgerData(
 
   // ── Load data ──────────────────────────────────────────────────
   const loadData = useCallback(async (date: string) => {
-    await initSampleData()
+    await initSampleData(userId)
     const [allPresets, dayEntries, userProfile, metrics] = await Promise.all([
       db.presetAssets.orderBy('sortOrder').toArray(),
       db.ledgerEntries

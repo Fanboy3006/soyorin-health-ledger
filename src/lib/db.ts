@@ -204,7 +204,9 @@ export function calcBMR(
 // Sample Data Initialization
 // ═══════════════════════════════════════════════════════════════════
 
-export async function initSampleData() {
+export async function initSampleData(userId?: string) {
+  // Only create sample data when a user is logged in
+  if (!userId) return
   const count = await db.presetAssets.count()
   if (count > 0) return
 
