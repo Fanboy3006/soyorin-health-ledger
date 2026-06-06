@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { db, type PresetAsset } from './db'
+import { supabase } from './supabaseClient'
 
 export const SAMPLE_PRESETS: Array<Omit<PresetAsset, 'id'>> = [
   {
@@ -81,16 +82,36 @@ export const SAMPLE_PRESETS: Array<Omit<PresetAsset, 'id'>> = [
 ]
 
 /**
- * 创建示例预设（仅在本地无预设时执行）。
+ * 创建示例预设（仅在本地和云端都无预设时执行）。
  * 在用户注册成功后调用，确保新用户开箱即用。
+ *
+ * @param userId - 当前登录用户的 Supabase user ID，用于检查云端数据
  */
-export async function createSamplePresets(): Promise<void> {
-  const count = await db.presetAssets.count()
-  if (count > 0) {
+export async function createSamplePresets(userId: string): Promise<void> {
+  // 1. 检查本地是否已有预设
+  const localCount = await db.presetAssets.count()
+  if (localCount > 0) {
     console.log('[SamplePresets] Local presets already exist, skipping')
     return
   }
 
+  // 2. 检查云端是否已有预设（老用户清空本地数据后登录，不应创建）
+  const { count: remoteCount, error } = await supabase
+    .from('preset_assets')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('[SamplePresets] Failed to check remote presets:', error)
+    return
+  }
+
+  if (remoteCount && remoteCount > 0) {
+    console.log(`[SamplePresets] Remote presets exist (${remoteCount}), skipping sample creation — will pull from cloud`)
+    return
+  }
+
+  // 3. 云端也没有数据，创建示例预设
   await db.presetAssets.bulkAdd(SAMPLE_PRESETS)
   console.log(`[SamplePresets] Created ${SAMPLE_PRESETS.length} sample presets`)
 }

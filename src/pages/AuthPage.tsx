@@ -30,7 +30,7 @@ export default function AuthPage() {
   useEffect(() => {
     if (user && !createdRef.current) {
       createdRef.current = true
-      createSamplePresets()
+      createSamplePresets(user.id)
     }
   }, [user])
 
