@@ -436,11 +436,8 @@ async function processPullData(
     if (!existing) {
       await (localTable as any).add(localRecord)
       console.log(`[Sync] pullTable ${remoteTable}: added new record ${pk}=${row[pk]}`)
-    } else if (
-      localRecord.createdAt &&
-      existing.createdAt &&
-      new Date(localRecord.createdAt) > new Date(existing.createdAt)
-    ) {
+    } else {
+      // Always update existing records to keep local data in sync with remote
       await (localTable as any).update(existing.id!, localRecord)
       console.log(`[Sync] pullTable ${remoteTable}: updated existing record ${pk}=${row[pk]}`)
     }
