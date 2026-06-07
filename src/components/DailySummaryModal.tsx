@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { type DailySummary } from '../lib/db'
 import { supabase } from '../lib/supabaseClient'
+import { saveReportToFile } from '../lib/fileStorage'
 
 interface DailySummaryModalProps {
   report: { markdown: string; summary: Omit<DailySummary, 'id' | 'synced'> }
@@ -20,6 +21,8 @@ export default function DailySummaryModal({
   const [aiEvaluation, setAiEvaluation] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiCopied, setAiCopied] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
 
   const handleCopy = async () => {
     try {
@@ -91,6 +94,22 @@ export default function DailySummaryModal({
     }
   }
 
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveMsg(null)
+    try {
+      const fileName = await saveReportToFile(report.markdown, report.summary.date)
+      if (fileName) {
+        setSaveMsg(`✅ 报告已保存到 ${fileName}`)
+      }
+    } catch (e) {
+      setSaveMsg('❌ 保存失败，请重试')
+      console.error('[DailySummary] Save failed:', e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[85vh] flex flex-col">
@@ -138,8 +157,22 @@ export default function DailySummaryModal({
           </div>
         )}
 
+        {/* Save message */}
+        {saveMsg && (
+          <div className="mb-3 shrink-0 text-sm text-center text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2">
+            {saveMsg}
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="flex gap-2 shrink-0">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 text-sm py-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? '⏳ 保存中…' : '💾 保存到文件'}
+          </button>
           <button
             onClick={handleAiAudit}
             disabled={aiLoading}
@@ -151,7 +184,7 @@ export default function DailySummaryModal({
             onClick={handleCopy}
             className="flex-1 text-sm py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
           >
-            {copied ? '✅ 已复制' : '📋 复制报告'}
+            {copied ? '✅ 已复制' : '📋 复制'}
           </button>
           <button
             onClick={onClose}
