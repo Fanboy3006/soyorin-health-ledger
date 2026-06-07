@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { type DailySummary } from '../lib/db'
 import { supabase } from '../lib/supabaseClient'
 import { saveReportToFile } from '../lib/fileStorage'
+import { useAuth } from '../lib/auth'
 
 interface DailySummaryModalProps {
   report: { markdown: string; summary: Omit<DailySummary, 'id' | 'synced'> }
@@ -16,6 +17,7 @@ export default function DailySummaryModal({
   report,
   onClose,
 }: DailySummaryModalProps) {
+  const { user } = useAuth()
   const [copied, setCopied] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiEvaluation, setAiEvaluation] = useState<string | null>(null)
@@ -95,12 +97,16 @@ export default function DailySummaryModal({
   }
 
   const handleSave = async () => {
+    if (!user?.id) {
+      setSaveMsg('❌ 未登录，无法保存')
+      return
+    }
     setSaving(true)
     setSaveMsg(null)
     try {
-      const fileName = await saveReportToFile(report.markdown, report.summary.date)
+      const fileName = await saveReportToFile(report.markdown, report.summary.date, user.id)
       if (fileName) {
-        setSaveMsg(`✅ 报告已保存到 ${fileName}`)
+        setSaveMsg(`✅ 报告已保存到 daily_logs/${user.id.slice(0, 8)}.../${fileName}`)
       }
     } catch (e) {
       setSaveMsg('❌ 保存失败，请重试')
