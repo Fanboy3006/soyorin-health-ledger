@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════════════════════════
-// BMR 计算逻辑 Hook
+// BMR 计算逻辑 Hook（薄层，调用 engine）
 // ═══════════════════════════════════════════════════════════════════
 
 import { useCallback } from 'react'
-import { db, calcBMR, type UserProfile } from '../lib/db'
+import { calcBMR, type UserProfile } from '../lib/db'
+import { saveUserProfile } from '../engine'
 import { r0 } from '../utils/formatters'
 
 export function useBMR(
@@ -20,12 +21,7 @@ export function useBMR(
 
   const handleBmrSave = useCallback(
     async (p: UserProfile) => {
-      const existing = await db.userProfile.limit(1).first()
-      if (existing?.id) {
-        await db.userProfile.update(existing.id, p)
-      } else {
-        await db.userProfile.add(p)
-      }
+      await saveUserProfile(p)
       setProfile(p)
     },
     [setProfile],

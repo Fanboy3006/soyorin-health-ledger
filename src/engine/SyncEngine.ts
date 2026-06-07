@@ -1,10 +1,12 @@
-import Dexie from 'dexie'
-import { db } from './db'
-import { supabase } from './supabaseClient'
+// ═══════════════════════════════════════════════════════════════════
+// SyncEngine — 同步引擎（本地 IndexedDB ↔ Supabase 双向同步）
+// ═══════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════
-// Table name mapping (local → Supabase)
-// ═══════════════════════════════════════════════════════════════════
+import Dexie from 'dexie'
+import { db } from '../lib/db'
+import { supabase } from '../lib/supabaseClient'
+
+// ── Table name mapping (local → Supabase) ─────────────────────────
 
 const TABLES = {
   presetAssets: 'preset_assets',
@@ -30,9 +32,7 @@ const TABLE_PK: Record<string, string> = {
   user_preferences: 'id',
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Helpers
-// ═══════════════════════════════════════════════════════════════════
+// ── Helpers ───────────────────────────────────────────────────────
 
 /** Convert a local record to a Supabase row (snake_case keys). */
 function toRemoteRow(table: string, record: any, userId: string): Record<string, any> {
@@ -232,9 +232,7 @@ function toLocalRecord(table: string, row: any): any {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Push: local → Supabase
-// ═══════════════════════════════════════════════════════════════════
+// ── Push: local → Supabase ────────────────────────────────────────
 
 async function pushTable<T extends { id?: number; remoteId?: string; synced?: boolean }>(
   localTable: Dexie.Table<T, number>,
@@ -331,9 +329,7 @@ async function pushTable<T extends { id?: number; remoteId?: string; synced?: bo
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Pull: Supabase → local
-// ═══════════════════════════════════════════════════════════════════
+// ── Pull: Supabase → local ────────────────────────────────────────
 
 async function pullTable<T extends { id?: number; remoteId?: string; createdAt?: string }>(
   localTable: Dexie.Table<T, number>,
@@ -455,9 +451,7 @@ async function processPullData(
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Delete from Supabase
-// ═══════════════════════════════════════════════════════════════════
+// ── Delete from Supabase ──────────────────────────────────────────
 
 export async function deleteRemoteRecord(remoteTable: string, remoteId: string) {
   const pk = TABLE_PK[remoteTable] ?? 'id'
@@ -508,9 +502,7 @@ export async function deletePresetsBatch(ids: number[]): Promise<number> {
   return deletedCount
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Public API
-// ═══════════════════════════════════════════════════════════════════
+// ── Public API ────────────────────────────────────────────────────
 
 export async function pushAll(userId: string) {
   await Promise.all([

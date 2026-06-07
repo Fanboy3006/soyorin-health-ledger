@@ -1,9 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════
-// 同步逻辑 Hook（网络监听 + 后台同步 + 手动同步）
+// 同步逻辑 Hook（薄层，调用 engine）
 // ═══════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fullSync } from '../lib/sync'
+import { fullSync } from '../engine'
 
 export function useSync(selectedDate: string, userId: string | undefined) {
   const [isOnline, setIsOnline] = useState(navigator.onLine)

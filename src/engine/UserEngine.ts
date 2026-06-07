@@ -1,19 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════
-// Health Profile — 用户健康档案管理
+// UserEngine — 用户引擎（认证 + 健康档案）
 // ═══════════════════════════════════════════════════════════════════
 
-import { db } from './db'
-import { supabase } from './supabaseClient'
+import { supabase } from '../lib/supabaseClient'
+import { db } from '../lib/db'
+
+// ── Health Profile ────────────────────────────────────────────────
 
 const PROFILE_FILENAME = 'health_profile.md'
 
 /**
  * 获取用户健康档案。
- *
  * 优先从本地 IndexedDB 读取，降级到 Supabase。
- *
- * @param userId - 当前登录用户的 ID
- * @returns Markdown 格式的健康档案内容，或 null（不存在）
  */
 export async function getHealthProfile(
   userId: string,
@@ -48,12 +46,6 @@ export async function getHealthProfile(
 
 /**
  * 保存用户健康档案。
- *
- * - 本地：保存到 IndexedDB userSettings
- * - 开发环境：同时保存到 daily_logs/{userId}/health_profile.md
- *
- * @param userId - 当前登录用户的 ID
- * @param content - Markdown 格式的健康档案内容
  */
 export async function saveHealthProfile(
   userId: string,
@@ -67,7 +59,6 @@ export async function saveHealthProfile(
 
   // 2. Save to Supabase
   try {
-    // Upsert: check if exists
     const { data: existing } = await supabase
       .from('user_settings')
       .select('id')
@@ -109,11 +100,6 @@ export async function saveHealthProfile(
 
 /**
  * 生成默认健康档案。
- *
- * 从 user_profile 表读取 BMR 相关数据，生成 Markdown 格式的档案。
- *
- * @param userId - 当前登录用户的 ID
- * @returns Markdown 格式的默认健康档案
  */
 export async function getDefaultHealthProfile(
   userId: string,
@@ -170,4 +156,40 @@ export async function getDefaultHealthProfile(
   profileText += `- 禁忌：\n`
 
   return profileText
+}
+
+// ── User Profile (BMR) ────────────────────────────────────────────
+
+/**
+ * 保存用户 BMR 配置。
+ */
+export async function saveUserProfile(profile: {
+  weightLbs: number
+  heightCm: number
+  age: number
+  gender: 'male' | 'female'
+  activityFactor: number
+  synced?: boolean
+}): Promise<void> {
+  const existing = await db.userProfile.limit(1).first()
+  if (existing?.id) {
+    await db.userProfile.update(existing.id, profile)
+  } else {
+    await db.userProfile.add({ ...profile, synced: false })
+  }
+}
+
+/**
+ * 加载用户 BMR 配置。
+ */
+export async function loadUserProfile(): Promise<{
+  weightLbs: number
+  heightCm: number
+  age: number
+  gender: 'male' | 'female'
+  activityFactor: number
+  synced?: boolean
+} | null> {
+  const result = await db.userProfile.limit(1).first()
+  return result ?? null
 }

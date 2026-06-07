@@ -8,7 +8,7 @@ import {
   getHealthProfile,
   saveHealthProfile,
   getDefaultHealthProfile,
-} from '../lib/healthProfile'
+} from '../engine'
 
 interface HealthProfileModalProps {
   onClose: () => void

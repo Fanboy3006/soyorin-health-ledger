@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════
-// 流水数据逻辑 Hook（加载、增删改查、撤销、日终结账）
+// 流水数据逻辑 Hook（薄层，调用 engine）
 // ═══════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -7,15 +7,27 @@ import {
   db,
   initSampleData,
   loadVisibleMetrics,
-  generateDailyReport,
   type PresetAsset,
   type LedgerEntry,
   type UserProfile,
   type DailySummary,
   type MetricKey,
 } from '../lib/db'
-import { deleteRemoteRecord } from '../lib/sync'
-import { nowISO } from '../utils/formatters'
+import {
+  loadEntries,
+  addEntry,
+  addManualEntry,
+  undoEntry,
+  updateEntryQuantity,
+  deleteEntry,
+  saveVisionPreset,
+  saveVisionEntry,
+  loadPresets,
+  getMaxSortOrder,
+  generateReport,
+  saveDailySummary,
+  saveDailyLog,
+} from '../engine'
 
 export interface VisionResult {
   name: string
@@ -57,17 +69,13 @@ export function useLedgerData(
     await initSampleData()
 
     // Step 1: Load presets first — entries depend on presets for name lookup
-    const allPresets = await db.presetAssets.orderBy('sortOrder').toArray()
+    const allPresets = await loadPresets()
     setPresets(allPresets)
     setPresetsLoaded(true)
 
     // Step 2: Now load entries and other data
     const [dayEntries, userProfile, metrics] = await Promise.all([
-      db.ledgerEntries
-        .where('date')
-        .equals(date)
-        .reverse()
-        .sortBy('createdAt'),
+      loadEntries(date),
       db.userProfile.limit(1).first(),
       loadVisibleMetrics(),
     ])
@@ -103,18 +111,7 @@ export function useLedgerData(
       }
       setUndoTarget(null)
 
-      const entry: LedgerEntry = {
-        presetId: preset.id!,
-        date: selectedDate,
-        type: 'preset',
-        quantity: 1,
-        manualDesc: '',
-        createdAt: nowISO(),
-        synced: false,
-      }
-
-      const id = await db.ledgerEntries.add(entry)
-      entry.id = id
+      const entry = await addEntry(preset, selectedDate)
 
       setEntries((prev) => [entry, ...prev])
 
@@ -136,22 +133,7 @@ export function useLedgerData(
       }
       setUndoTarget(null)
 
-      const entry: LedgerEntry = {
-        presetId: null,
-        date: selectedDate,
-        type: 'manual',
-        quantity: 1,
-        manualDesc: data.notes
-          ? `${data.name}（${data.notes}）`
-          : data.name,
-        manualType: data.type,
-        manualCalories: data.calories,
-        createdAt: nowISO(),
-        synced: false,
-      }
-
-      const id = await db.ledgerEntries.add(entry)
-      entry.id = id
+      const entry = await addManualEntry(data, selectedDate)
 
       setEntries((prev) => [entry, ...prev])
 
@@ -171,7 +153,7 @@ export function useLedgerData(
       clearTimeout(undoRef.current)
       undoRef.current = null
     }
-    await db.ledgerEntries.delete(undoTarget.id)
+    await undoEntry(undoTarget.id)
     setEntries((prev) => prev.filter((e) => e.id !== undoTarget.id))
     setUndoTarget(null)
   }, [undoTarget])
@@ -179,10 +161,7 @@ export function useLedgerData(
   // ── Quantity edit ───────────────────────────────────────────────
   const handleQuantityEdit = useCallback(
     async (entryId: number, newQuantity: number) => {
-      await db.ledgerEntries.update(entryId, {
-        quantity: newQuantity,
-        synced: false,
-      })
+      await updateEntryQuantity(entryId, newQuantity, selectedDate)
 
       setEntries((prev) =>
         prev.map((e) =>
@@ -191,14 +170,6 @@ export function useLedgerData(
       )
 
       setEditTarget(null)
-
-      const existingSummary = await db.dailySummaries
-        .where('date')
-        .equals(selectedDate)
-        .first()
-      if (existingSummary?.id) {
-        await db.dailySummaries.update(existingSummary.id, { synced: false })
-      }
     },
     [selectedDate],
   )
@@ -207,52 +178,20 @@ export function useLedgerData(
   const handleDeleteEntry = useCallback(async () => {
     if (!deleteTarget?.id) return
 
-    await db.ledgerEntries.delete(deleteTarget.id)
-
-    if (deleteTarget.remoteId && isOnline) {
-      try {
-        await deleteRemoteRecord('ledger_entries', deleteTarget.remoteId)
-      } catch (e) {
-        console.error('[Delete] Failed to delete from Supabase:', e)
-      }
-    }
+    await deleteEntry(deleteTarget.id, deleteTarget.remoteId, isOnline, selectedDate)
 
     setEntries((prev) => prev.filter((e) => e.id !== deleteTarget.id))
     setDeleteTarget(null)
-
-    const existingSummary = await db.dailySummaries
-      .where('date')
-      .equals(selectedDate)
-      .first()
-    if (existingSummary?.id) {
-      await db.dailySummaries.update(existingSummary.id, { synced: false })
-    }
   }, [deleteTarget, isOnline, selectedDate])
 
   // ── Vision Recognize: Save as Preset ───────────────────────────
   const handleVisionSavePreset = useCallback(
     async (result: VisionResult) => {
-      const maxSort = presets.reduce((m, p) => Math.max(m, p.sortOrder), 0)
-      await db.presetAssets.add({
-        name: result.name,
-        type: 'diet',
-        calories: result.calories,
-        caloriesBurned: 0,
-        proteinG: result.protein_g,
-        fatG: result.fat_g,
-        carbG: result.carb_g,
-        fructoseG: result.fructose_g,
-        sodiumMg: result.sodium_mg,
-        potassiumMg: result.potassium_mg,
-        notes: result.description || '',
-        isActive: true,
-        sortOrder: maxSort + 1,
-        unit: result.unit || '份',
-        synced: false,
-      })
+      const maxSort = await getMaxSortOrder()
+      await saveVisionPreset(result, maxSort)
       navigate('/presets')
     },
-    [presets, navigate],
+    [navigate],
   )
 
   // ── Vision Recognize: Save as Temporary Entry ──────────────────
@@ -264,21 +203,7 @@ export function useLedgerData(
       }
       setUndoTarget(null)
 
-      const entry: LedgerEntry = {
-        presetId: null,
-        date: selectedDate,
-        type: 'manual',
-        quantity: result.quantity || 1,
-        manualDesc: result.description || result.name,
-        manualType: 'diet',
-        manualCalories: result.calories,
-        manualFructoseG: result.fructose_g,
-        createdAt: nowISO(),
-        synced: false,
-      }
-
-      const id = await db.ledgerEntries.add(entry)
-      entry.id = id
+      const entry = await saveVisionEntry(result, selectedDate)
 
       setEntries((prev) => [entry, ...prev])
 
@@ -291,47 +216,23 @@ export function useLedgerData(
     [selectedDate],
   )
 
-  // ── Save daily log to local file ────────────────────────────────
-  const saveDailyLog = useCallback(async (markdown: string, date: string) => {
-    try {
-      console.log(`[DailyLog] Report for ${date} generated (${markdown.length} chars)`)
-    } catch (e) {
-      console.warn('[DailyLog] Failed to save log file:', e)
-    }
-  }, [])
-
   // ── Daily settlement ────────────────────────────────────────────
   const handleSettle = useCallback(async () => {
-    const { summary, markdown } = generateDailyReport(
+    const { summary, markdown } = generateReport(
       selectedDate,
       entries,
       presets,
       profile,
     )
 
-    const existing = await db.dailySummaries
-      .where('date')
-      .equals(selectedDate)
-      .first()
-
-    if (existing?.id) {
-      await db.dailySummaries.update(existing.id, {
-        ...summary,
-        synced: false,
-      })
-    } else {
-      await db.dailySummaries.add({
-        ...summary,
-        synced: false,
-      })
-    }
+    await saveDailySummary(selectedDate, summary)
 
     // Save to daily_logs/ folder (browser download fallback)
     await saveDailyLog(markdown, selectedDate)
 
     setReportData({ markdown, summary })
     setShowReportModal(true)
-  }, [selectedDate, entries, presets, profile, saveDailyLog])
+  }, [selectedDate, entries, presets, profile])
 
   return {
     presets,

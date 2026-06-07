@@ -19,7 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { db, type PresetAsset, estimateFructoseForAllDietPresets, loadVisibleMetrics } from '../lib/db'
 import { supabase } from '../lib/supabaseClient'
-import { deletePresetCompletely, deletePresetsBatch, fullSync } from '../lib/sync'
+import { deletePresetCompletely, deletePresetsBatch, fullSync } from '../engine'
 import { useAuth } from '../lib/auth'
 import { todayStr } from '../utils/formatters'
 
