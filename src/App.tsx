@@ -208,12 +208,12 @@ export default function App() {
           />
         </section>
 
-        {/* ── Main Content: Side-by-side on md+, stacked on mobile ── */}
-        {/* On mobile: flex-col-reverse puts ledger on top, presets on bottom */}
-        {/* On desktop: flex-row keeps presets on left, ledger on right */}
-        <div className="flex flex-col-reverse md:flex-row md:gap-6">
-          {/* ── Preset Buttons — order-2 on mobile (bottom), order-1 on desktop (left) ── */}
-          <section className="md:w-80 md:flex-shrink-0 mb-6 md:mb-0 order-2 md:order-1">
+        {/* ── Main Content: Grid layout with order swap ── */}
+        {/* Mobile (single column): presets on top (order-1), ledger on bottom (order-2) */}
+        {/* Desktop (two columns): ledger on left (order-1), presets on right (order-2) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* ── Preset Buttons — order-1 on mobile (top), order-2 on desktop (right) ── */}
+          <section className="order-1 md:order-2">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
               快捷记录
             </h2>
@@ -259,8 +259,8 @@ export default function App() {
             </div>
           </section>
 
-          {/* ── Ledger + Actions — order-1 on mobile (top), order-2 on desktop (right) ── */}
-          <section className="flex-1 min-w-0 order-1 md:order-2">
+          {/* ── Ledger + Actions — order-2 on mobile (bottom), order-1 on desktop (left) ── */}
+          <section className="flex-1 min-w-0 order-2 md:order-1">
             {/* ── Undo Toast ──────────────────────────────────────── */}
             {undoTarget && (
               <div className="mb-4 flex items-center justify-between bg-white rounded-xl shadow-lg border border-gray-200 px-4 py-3">
