@@ -19,7 +19,9 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { db, type PresetAsset, estimateFructoseForAllDietPresets, loadVisibleMetrics } from '../lib/db'
 import { supabase } from '../lib/supabaseClient'
-import { deletePresetCompletely, deletePresetsBatch } from '../lib/sync'
+import { deletePresetCompletely, deletePresetsBatch, fullSync } from '../lib/sync'
+import { useAuth } from '../lib/auth'
+import { todayStr } from '../utils/formatters'
 
 // ── Default empty preset ──────────────────────────────────────────
 
@@ -655,6 +657,29 @@ export default function PresetManager() {
     }
   }, [loadPresets, showMsg])
 
+  // ── Reset presets from cloud ──────────────────────────────────
+  const { user } = useAuth()
+  const [resetting, setResetting] = useState(false)
+
+  const handleResetPresets = useCallback(async () => {
+    if (!user?.id) {
+      showMsg('请先登录后再同步')
+      return
+    }
+    if (!confirm('清空本地预设并重新从云端拉取？云端数据不会被删除。')) return
+    setResetting(true)
+    try {
+      await db.presetAssets.clear()
+      await fullSync(todayStr(), user.id)
+      await loadPresets()
+      showMsg('✅ 预设已从云端恢复')
+    } catch (e) {
+      showMsg(e instanceof Error ? e.message : '同步失败，请重试')
+    } finally {
+      setResetting(false)
+    }
+  }, [user, loadPresets, showMsg])
+
   // ── Render ────────────────────────────────────────────────────
   const isTraining = editing?.type === 'training'
 
@@ -675,6 +700,13 @@ export default function PresetManager() {
             </h1>
           </div>
           <div className="flex gap-1.5 flex-wrap justify-end">
+            <button
+              onClick={handleResetPresets}
+              disabled={resetting}
+              className="text-xs px-2 py-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {resetting ? '⏳ 同步中…' : '🔄 同步修复'}
+            </button>
             <button
               onClick={handleEstimateFructose}
               disabled={estimating}
