@@ -39,6 +39,7 @@ export function useLedgerData(
   // ── State ──────────────────────────────────────────────────────
   const [presets, setPresets] = useState<PresetAsset[]>([])
   const [entries, setEntries] = useState<LedgerEntry[]>([])
+  const [presetsLoaded, setPresetsLoaded] = useState(false)
   const [undoTarget, setUndoTarget] = useState<LedgerEntry | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [visibleMetrics, setVisibleMetrics] = useState<MetricKey[]>([])
@@ -54,8 +55,14 @@ export function useLedgerData(
   // ── Load data ──────────────────────────────────────────────────
   const loadData = useCallback(async (date: string) => {
     await initSampleData()
-    const [allPresets, dayEntries, userProfile, metrics] = await Promise.all([
-      db.presetAssets.orderBy('sortOrder').toArray(),
+
+    // Step 1: Load presets first — entries depend on presets for name lookup
+    const allPresets = await db.presetAssets.orderBy('sortOrder').toArray()
+    setPresets(allPresets)
+    setPresetsLoaded(true)
+
+    // Step 2: Now load entries and other data
+    const [dayEntries, userProfile, metrics] = await Promise.all([
       db.ledgerEntries
         .where('date')
         .equals(date)
@@ -64,7 +71,6 @@ export function useLedgerData(
       db.userProfile.limit(1).first(),
       loadVisibleMetrics(),
     ])
-    setPresets(allPresets)
     setEntries(dayEntries.reverse())
     setVisibleMetrics(metrics)
     if (userProfile) {
@@ -330,6 +336,7 @@ export function useLedgerData(
   return {
     presets,
     entries,
+    presetsLoaded,
     profile,
     visibleMetrics,
     undoTarget,
