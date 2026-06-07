@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { supabase } from './supabaseClient'
+import { db } from './db'
 import type { User } from '@supabase/supabase-js'
 
 interface AuthContextValue {
@@ -66,6 +67,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
+    // Clear local IndexedDB data (user data only, keep userPreferences for directory handle)
+    const tablesToClear = [
+      'presetAssets',
+      'ledgerEntries',
+      'dailySummaries',
+      'biometrics',
+      'aiSessions',
+      'userProfile',
+    ] as const
+    for (const table of tablesToClear) {
+      await (db as any)[table].clear()
+    }
+    // Execute Supabase sign out
     await supabase.auth.signOut()
   }
 
