@@ -7,6 +7,7 @@ import App from './App.tsx'
 import AuthPage from './pages/AuthPage.tsx'
 import PresetManager from './pages/PresetManager.tsx'
 import Trends from './pages/Trends.tsx'
+import Reports from './pages/Reports.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,6 +18,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/presets" element={<PresetManager />} />
           <Route path="/trends" element={<Trends />} />
+          <Route path="/reports" element={<Reports />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

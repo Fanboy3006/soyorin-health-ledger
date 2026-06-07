@@ -117,6 +117,12 @@ export default function App() {
                 🔄
               </button>
               <button
+                onClick={() => navigate('/reports')}
+                className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 cursor-pointer"
+              >
+                历史报告
+              </button>
+              <button
                 onClick={() => navigate('/trends')}
                 className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 cursor-pointer"
               >
