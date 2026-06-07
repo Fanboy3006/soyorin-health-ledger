@@ -8,6 +8,7 @@ import AuthPage from './pages/AuthPage.tsx'
 import PresetManager from './pages/PresetManager.tsx'
 import Trends from './pages/Trends.tsx'
 import Reports from './pages/Reports.tsx'
+import AiChat from './pages/AiChat.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -19,6 +20,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/presets" element={<PresetManager />} />
           <Route path="/trends" element={<Trends />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/ai-chat" element={<AiChat />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

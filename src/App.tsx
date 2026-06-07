@@ -117,6 +117,12 @@ export default function App() {
                 🔄
               </button>
               <button
+                onClick={() => navigate('/ai-chat')}
+                className="text-xs px-3 py-1.5 rounded-lg border border-purple-300 text-purple-600 hover:bg-purple-50 cursor-pointer"
+              >
+                🤖 AI 助手
+              </button>
+              <button
                 onClick={() => navigate('/reports')}
                 className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 cursor-pointer"
               >
