@@ -109,10 +109,27 @@ serve(async (req: Request) => {
       contextBlock = '\n\n（用户最近 7 天暂无健康数据）'
     }
 
+    // ── Fetch health profile ────────────────────────────────────
+    let healthProfileBlock = ''
+    try {
+      const { data: hpData } = await supabase
+        .from('user_settings')
+        .select('value')
+        .eq('user_id', body.userId)
+        .eq('key', 'health_profile')
+        .single()
+
+      if (hpData?.value) {
+        healthProfileBlock = `\n\n以下是用户的健康档案信息，请参考这些信息提供个性化建议：\n\`\`\`\n${hpData.value}\n\`\`\`\n`
+      }
+    } catch {
+      // Health profile not available, continue without it
+    }
+
     // ── Build messages with context ─────────────────────────────
     const contextMessage: ChatMessage = {
       role: 'system',
-      content: SYSTEM_PROMPT + contextBlock,
+      content: SYSTEM_PROMPT + healthProfileBlock + contextBlock,
     }
 
     const apiMessages = [contextMessage, ...body.messages.filter((m) => m.role !== 'system')]

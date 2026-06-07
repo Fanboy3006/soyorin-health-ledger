@@ -24,6 +24,7 @@ import VisionRecognizeModal from './components/VisionRecognizeModal'
 import DailySummaryModal from './components/DailySummaryModal'
 import DeleteConfirmModal from './components/DeleteConfirmModal'
 import QuantityEditModal from './components/QuantityEditModal'
+import HealthProfileModal from './components/HealthProfileModal'
 
 export default function App() {
   const navigate = useNavigate()
@@ -37,6 +38,7 @@ export default function App() {
   const [showManualModal, setShowManualModal] = useState(false)
   const [showMetricsModal, setShowMetricsModal] = useState(false)
   const [showVisionModal, setShowVisionModal] = useState(false)
+  const [showHealthProfileModal, setShowHealthProfileModal] = useState(false)
 
   // ── Hooks ──────────────────────────────────────────────────────
   const { isOnline, syncMessage, handleManualSync } = useSync(selectedDate, user?.id)
@@ -146,6 +148,13 @@ export default function App() {
                 title="追踪项设置"
               >
                 📊
+              </button>
+              <button
+                onClick={() => setShowHealthProfileModal(true)}
+                className="text-xs px-2 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 cursor-pointer"
+                title="健康档案"
+              >
+                📋
               </button>
               <button
                 onClick={() => setShowBmrModal(true)}
@@ -408,6 +417,13 @@ export default function App() {
             setShowVisionModal(false)
           }}
           onClose={() => setShowVisionModal(false)}
+        />
+      )}
+
+      {/* ── Health Profile Modal ─────────────────────────────── */}
+      {showHealthProfileModal && (
+        <HealthProfileModal
+          onClose={() => setShowHealthProfileModal(false)}
         />
       )}
     </div>
