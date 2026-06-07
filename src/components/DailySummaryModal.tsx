@@ -106,7 +106,11 @@ export default function DailySummaryModal({
     try {
       const fileName = await saveReportToFile(report.markdown, report.summary.date, user.id)
       if (fileName) {
-        setSaveMsg(`✅ 报告已保存到 daily_logs/${user.id.slice(0, 8)}.../${fileName}`)
+        if (import.meta.env.DEV) {
+          setSaveMsg(`✅ 报告已保存到 daily_logs/${user.id.slice(0, 8)}.../${fileName}`)
+        } else {
+          setSaveMsg(`✅ 报告已下载：${fileName}`)
+        }
       }
     } catch (e) {
       setSaveMsg('❌ 保存失败，请重试')
