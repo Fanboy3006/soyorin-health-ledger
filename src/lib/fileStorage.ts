@@ -11,7 +11,7 @@ const SETTINGS_KEY = 'report_save_dir'
  *
  * 流程：
  * 1. 首次保存时弹出目录选择器，用户选择保存位置
- * 2. 将目录句柄保存到 IndexedDB（userPreferences）
+ * 2. 将目录句柄保存到 userSettings 表
  * 3. 后续保存直接写入同一目录
  * 4. 如果 File System Access API 不支持，降级为下载
  *
@@ -51,22 +51,19 @@ async function saveWithFileSystemAPI(
   content: string,
   fileName: string,
 ): Promise<string | null> {
-  // 1. Get saved directory handle
+  // 1. Get saved directory handle from userSettings
   let dirHandle: FileSystemDirectoryHandle | null = null
-  const saved = await db.userPreferences
-    .where('visibleMetrics')
-    .equals(SETTINGS_KEY)
-    .first()
+  const saved = await db.userSettings.get({ key: SETTINGS_KEY })
 
-  if (saved?.remoteId) {
+  if (saved?.value) {
     try {
       dirHandle = await (window as any).showDirectoryPicker({
-        id: saved.remoteId,
+        id: saved.value,
         mode: 'readwrite',
       })
     } catch {
       // Stored handle is invalid, reset
-      await db.userPreferences.delete(saved.id!)
+      await db.userSettings.delete(saved.id!)
       dirHandle = null
     }
   }
@@ -77,11 +74,7 @@ async function saveWithFileSystemAPI(
       mode: 'readwrite',
     })
     // Store the directory name as identifier
-    await db.userPreferences.add({
-      visibleMetrics: SETTINGS_KEY,
-      remoteId: dirHandle!.name,
-      synced: false,
-    })
+    await db.userSettings.put({ key: SETTINGS_KEY, value: dirHandle!.name })
   }
 
   // dirHandle is guaranteed non-null from here (either restored or just picked)

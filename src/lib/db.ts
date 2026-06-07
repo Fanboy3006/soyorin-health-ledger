@@ -117,6 +117,13 @@ export interface UserPreferences {
   synced: boolean
 }
 
+/** 表 8：user_settings（用户设置 — 键值对存储，如文件保存目录） */
+export interface UserSetting {
+  id?: number
+  key: string
+  value: string
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Dexie Database
 // ═══════════════════════════════════════════════════════════════════
@@ -129,10 +136,11 @@ export class SoyorinDB extends Dexie {
   aiSessions!: EntityTable<AiSession, 'id'>
   userProfile!: EntityTable<UserProfile, 'id'>
   userPreferences!: EntityTable<UserPreferences, 'id'>
+  userSettings!: EntityTable<UserSetting, 'id'>
 
   constructor() {
     super('SoyorinDB')
-    this.version(6).stores({
+    this.version(7).stores({
       presetAssets: '++id, remoteId, name, type, isActive, sortOrder, synced',
       ledgerEntries: '++id, remoteId, date, presetId, type, createdAt, synced',
       dailySummaries: '++id, remoteId, date, synced',
@@ -140,6 +148,7 @@ export class SoyorinDB extends Dexie {
       aiSessions: '++id, remoteId, sessionType, createdAt, synced',
       userProfile: '++id, remoteId, synced',
       userPreferences: '++id, remoteId, synced',
+      userSettings: '++id, &key',
     })
   }
 }
