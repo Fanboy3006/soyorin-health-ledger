@@ -6,10 +6,35 @@ import { db, type PresetAsset } from '../lib/db'
 import { deletePresetCompletely, deletePresetsBatch } from './SyncEngine'
 
 /**
- * 加载所有预设，按 sortOrder 排序。
+ * 加载所有预设，按 lastUsedAt 倒序 > createdAt 倒序排序。
+ * 排序规则：最近使用的排最前面，从未使用的按创建时间倒序。
  */
 export async function loadPresets(): Promise<PresetAsset[]> {
-  return await db.presetAssets.orderBy('sortOrder').toArray()
+  const all = await db.presetAssets.toArray()
+  const sorted = all.sort((a, b) => {
+    // lastUsedAt 倒序（有值的优先）
+    if (a.lastUsedAt && b.lastUsedAt) {
+      return b.lastUsedAt.localeCompare(a.lastUsedAt)
+    }
+    if (a.lastUsedAt && !b.lastUsedAt) return -1
+    if (!a.lastUsedAt && b.lastUsedAt) return 1
+    // 都没有 lastUsedAt，按 createdAt 倒序
+    if (a.createdAt && b.createdAt) {
+      return b.createdAt.localeCompare(a.createdAt)
+    }
+    if (a.createdAt && !b.createdAt) return -1
+    if (!a.createdAt && b.createdAt) return 1
+    // 最后按 sortOrder 兜底
+    return (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+  })
+  console.log('[PresetEngine] loadPresets sorted order:', sorted.map(p => ({
+    id: p.id,
+    name: p.name,
+    lastUsedAt: p.lastUsedAt,
+    createdAt: p.createdAt,
+    sortOrder: p.sortOrder,
+  })))
+  return sorted
 }
 
 /**

@@ -19,6 +19,7 @@ export async function loadEntries(date: string): Promise<LedgerEntry[]> {
 
 /**
  * 一键记录预设。
+ * 同时更新预设的 lastUsedAt 为当前时间，使其排到列表最前面。
  */
 export async function addEntry(
   preset: PresetAsset,
@@ -36,6 +37,14 @@ export async function addEntry(
 
   const id = await db.ledgerEntries.add(entry)
   entry.id = id
+
+  // 更新预设的 lastUsedAt，使其在排序中排到最前面
+  const now = nowISO()
+  await db.presetAssets.update(preset.id!, {
+    lastUsedAt: now,
+    synced: false,
+  })
+
   return entry
 }
 
@@ -148,6 +157,7 @@ export async function saveVisionPreset(
   },
   maxSortOrder: number,
 ): Promise<void> {
+  const now = new Date().toISOString()
   await db.presetAssets.add({
     name: result.name,
     type: 'diet',
@@ -163,6 +173,8 @@ export async function saveVisionPreset(
     isActive: true,
     sortOrder: maxSortOrder + 1,
     unit: result.unit || '份',
+    lastUsedAt: now,
+    createdAt: now,
     synced: false,
   })
 }

@@ -27,6 +27,10 @@ export interface PresetAsset {
   sortOrder: number
   /** 计量单位，如"份"、"克"、"个"、"次"等 */
   unit: string
+  /** 最近使用时间 (ISO 8601)，用于动态排序 */
+  lastUsedAt?: string
+  /** 创建时间 (ISO 8601)，用于排序兜底 */
+  createdAt?: string
   synced: boolean
 }
 
@@ -140,8 +144,8 @@ export class SoyorinDB extends Dexie {
 
   constructor() {
     super('SoyorinDB')
-    this.version(7).stores({
-      presetAssets: '++id, remoteId, name, type, isActive, sortOrder, synced',
+    this.version(8).stores({
+      presetAssets: '++id, remoteId, name, type, isActive, sortOrder, lastUsedAt, createdAt, synced',
       ledgerEntries: '++id, remoteId, date, presetId, type, createdAt, synced',
       dailySummaries: '++id, remoteId, date, synced',
       biometrics: '++id, remoteId, date, source, synced',

@@ -115,6 +115,10 @@ export function useLedgerData(
 
       setEntries((prev) => [entry, ...prev])
 
+      // Refresh presets so the sort order updates (lastUsedAt changed)
+      const updatedPresets = await loadPresets()
+      setPresets(updatedPresets)
+
       setUndoTarget(entry)
       undoRef.current = setTimeout(() => {
         setUndoTarget(null)

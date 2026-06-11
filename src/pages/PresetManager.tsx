@@ -19,13 +19,14 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { db, type PresetAsset, estimateFructoseForAllDietPresets, loadVisibleMetrics } from '../lib/db'
 import { supabase } from '../lib/supabaseClient'
-import { deletePresetCompletely, deletePresetsBatch, fullSync } from '../engine'
+import { deletePresetCompletely, deletePresetsBatch, fullSync, loadPresets } from '../engine'
 import { useAuth } from '../lib/auth'
 import { todayStr } from '../utils/formatters'
 
 // ── Default empty preset ──────────────────────────────────────────
 
 function emptyPreset(): Omit<PresetAsset, 'id'> {
+  const now = new Date().toISOString()
   return {
     name: '',
     type: 'diet',
@@ -41,6 +42,8 @@ function emptyPreset(): Omit<PresetAsset, 'id'> {
     isActive: true,
     sortOrder: 0,
     unit: '份',
+    lastUsedAt: now,
+    createdAt: now,
     synced: false,
   }
 }
@@ -418,15 +421,21 @@ export default function PresetManager() {
   )
 
   // ── Load ──────────────────────────────────────────────────────
-  const loadPresets = useCallback(async () => {
-    const all = await db.presetAssets.orderBy('sortOrder').toArray()
+  const loadPresetsList = useCallback(async () => {
+    const all = await loadPresets()
+    console.log('[PresetManager] loadPresetsList result:', all.map(p => ({
+      id: p.id,
+      name: p.name,
+      lastUsedAt: p.lastUsedAt,
+      createdAt: p.createdAt,
+    })))
     setPresets(all)
   }, [])
 
   useEffect(() => {
-    loadPresets()
+    loadPresetsList()
     loadVisibleMetrics().then(setTrackedMetrics)
-  }, [loadPresets])
+  }, [loadPresetsList])
 
   // ── Drag end handler ────────────────────────────────────────────
   const handleDragEnd = useCallback(
@@ -469,9 +478,12 @@ export default function PresetManager() {
           (m, p) => Math.max(m, p.sortOrder),
           0,
         )
+        const now = new Date().toISOString()
         await db.presetAssets.add({
           ...editing,
           sortOrder: maxSort + 1,
+          lastUsedAt: now,
+          createdAt: now,
           synced: false,
         })
         showMsg('预设已创建')
@@ -485,9 +497,9 @@ export default function PresetManager() {
 
       setEditing(null)
       setIsNew(false)
-      await loadPresets()
+      await loadPresetsList()
     },
-    [editing, isNew, presets, loadPresets, showMsg],
+    [editing, isNew, presets, loadPresetsList, showMsg],
   )
 
   // ── Batch select helpers ──────────────────────────────────────
@@ -525,9 +537,9 @@ export default function PresetManager() {
         return next
       })
       showMsg('预设已删除')
-      await loadPresets()
+      await loadPresetsList()
     },
-    [loadPresets, showMsg],
+    [loadPresetsList, showMsg],
   )
 
   // ── Batch delete ──────────────────────────────────────────────
@@ -539,13 +551,13 @@ export default function PresetManager() {
       setSelectedIds(new Set())
       setBatchDeleteConfirm(false)
       showMsg(`已批量删除 ${count} 个预设`)
-      await loadPresets()
+      await loadPresetsList()
     } catch (e) {
       showMsg(e instanceof Error ? e.message : '批量删除失败')
     } finally {
       setBatchDeleting(false)
     }
-  }, [selectedIds, loadPresets, showMsg])
+  }, [selectedIds, loadPresetsList, showMsg])
 
   // ── Toggle active ─────────────────────────────────────────────
   const handleToggleActive = useCallback(
@@ -554,9 +566,9 @@ export default function PresetManager() {
         isActive: !preset.isActive,
         synced: false,
       })
-      await loadPresets()
+      await loadPresetsList()
     },
-    [loadPresets],
+    [loadPresetsList],
   )
 
   // ── JSON Import ───────────────────────────────────────────────
@@ -566,6 +578,7 @@ export default function PresetManager() {
       const arr = Array.isArray(data) ? data : [data]
       const toAdd: PresetAsset[] = []
       let sort = (await db.presetAssets.count()) + 1
+      const now = new Date().toISOString()
       for (const item of arr) {
         toAdd.push({
           name: item.name || '未命名',
@@ -583,6 +596,8 @@ export default function PresetManager() {
           isActive: item.isActive ?? true,
           sortOrder: sort++,
           unit: item.unit ?? '份',
+          lastUsedAt: now,
+          createdAt: now,
           synced: false,
         })
       }
@@ -590,11 +605,11 @@ export default function PresetManager() {
       showMsg(`成功导入 ${toAdd.length} 个预设`)
       setImportText('')
       setShowImport(false)
-      await loadPresets()
+      await loadPresetsList()
     } catch {
       showMsg('JSON 格式错误，请检查')
     }
-  }, [importText, loadPresets, showMsg])
+  }, [importText, loadPresetsList, showMsg])
 
   // ── JSON Export ───────────────────────────────────────────────
   const handleExport = useCallback(() => {
@@ -619,16 +634,19 @@ export default function PresetManager() {
   const handleAiSave = useCallback(
     async (preset: Omit<PresetAsset, 'id'>) => {
       const maxSort = presets.reduce((m, p) => Math.max(m, p.sortOrder), 0)
+      const now = new Date().toISOString()
       await db.presetAssets.add({
         ...preset,
         sortOrder: maxSort + 1,
+        lastUsedAt: now,
+        createdAt: now,
         synced: false,
       })
       setShowAiGenerate(false)
       showMsg('✅ AI 生成的预设已添加')
-      await loadPresets()
+      await loadPresetsList()
     },
-    [presets, loadPresets, showMsg],
+    [presets, loadPresetsList, showMsg],
   )
 
   // ── New preset ────────────────────────────────────────────────
@@ -649,13 +667,13 @@ export default function PresetManager() {
       } else {
         showMsg('所有饮食预设已有果糖数据，无需估算')
       }
-      await loadPresets()
+      await loadPresetsList()
     } catch (e) {
       showMsg(e instanceof Error ? e.message : '估算失败，请重试')
     } finally {
       setEstimating(false)
     }
-  }, [loadPresets, showMsg])
+  }, [loadPresetsList, showMsg])
 
   // ── Reset presets from cloud ──────────────────────────────────
   const { user } = useAuth()
@@ -671,14 +689,14 @@ export default function PresetManager() {
     try {
       await db.presetAssets.clear()
       await fullSync(todayStr(), user.id)
-      await loadPresets()
+      await loadPresetsList()
       showMsg('✅ 预设已从云端恢复')
     } catch (e) {
       showMsg(e instanceof Error ? e.message : '同步失败，请重试')
     } finally {
       setResetting(false)
     }
-  }, [user, loadPresets, showMsg])
+  }, [user, loadPresetsList, showMsg])
 
   // ── Render ────────────────────────────────────────────────────
   const isTraining = editing?.type === 'training'

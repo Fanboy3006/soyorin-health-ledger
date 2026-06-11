@@ -52,6 +52,11 @@ export default function AuthPage() {
         setSuccessMsg('注册成功！请查看邮箱确认链接，然后登录。')
         // Mark as new user so sample presets are created on first login
         sessionStorage.setItem('soyorin_new_user', 'true')
+      } else {
+        // Login success — show toast before navigation
+        setSuccessMsg('登录成功，欢迎回来！')
+        // Clear after 3 seconds (navigation will happen via useEffect)
+        setTimeout(() => setSuccessMsg(null), 3000)
       }
       // login success → user state changes → useEffect navigates to /
     } finally {
