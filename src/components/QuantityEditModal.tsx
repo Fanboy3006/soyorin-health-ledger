@@ -26,12 +26,21 @@ export default function QuantityEditModal({
   const unit = isManual ? '份' : preset?.unit ?? '份'
 
   const [quantity, setQuantity] = useState(entry.quantity)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (quantity < 0) return
+    setError(null)
+
+    if (quantity <= 0) {
+      setError('数量必须大于 0')
+      return
+    }
+
+    // Round to 2 decimal places
+    const rounded = Math.round(quantity * 100) / 100
     if (entry.id) {
-      onSave(entry.id, quantity)
+      onSave(entry.id, rounded)
     }
   }
 
@@ -48,14 +57,19 @@ export default function QuantityEditModal({
             <label className="text-xs text-gray-500">数量（{unit}）</label>
             <input
               type="number"
-              min="0"
-              step="0.5"
+              min="0.01"
+              step="any"
               value={quantity}
               onChange={(e) => setQuantity(Number(e.target.value))}
               className="w-full border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
               autoFocus
             />
           </div>
+          {error && (
+            <div className="text-sm text-rose-600 bg-rose-50 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
           <div className="flex gap-2 pt-2">
             <button
               type="submit"

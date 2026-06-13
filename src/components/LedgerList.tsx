@@ -61,17 +61,17 @@ export default function LedgerList({
                 className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 cursor-pointer"
                 title="修改数量"
               >
-                ×{entry.quantity}
+                ×{entry.quantity % 1 === 0 ? entry.quantity : entry.quantity.toFixed(2)}
               </button>
 
               {/* Calories */}
               <span
-                className={`text-xs font-medium w-16 text-right ${
+                className={`text-xs font-medium w-20 text-right ${
                   type === 'training' ? 'text-rose-500' : 'text-gray-700'
                 }`}
               >
                 {type === 'training' ? '-' : '+'}
-                {cal}
+                {cal % 1 === 0 ? cal : cal.toFixed(1)}
               </span>
 
               {/* Delete */}
