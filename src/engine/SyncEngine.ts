@@ -301,9 +301,13 @@ async function pushTable<T extends { id?: number; remoteId?: string; synced?: bo
         }
       }
     } else {
-      const { data, error } = await supabase
-        .from(remoteTable)
-        .insert(row)
+      // daily_summaries uses 'date' as PK — use upsert to avoid 409 conflicts
+      const isDailySummaries = remoteTable === 'daily_summaries'
+      const query = isDailySummaries
+        ? supabase.from(remoteTable).upsert(row, { onConflict: 'date' })
+        : supabase.from(remoteTable).insert(row)
+
+      const { data, error } = await query
         .select(pk)
         .single()
 
